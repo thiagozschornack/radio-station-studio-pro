@@ -1,0 +1,21 @@
+[Unit]
+Description=RADIO STATION STUDIO PRO — API e painel
+After=network-online.target postgresql.service icecast2.service
+Wants=network-online.target
+
+[Service]
+User=rssp
+WorkingDirectory=/opt/rssp/backend
+EnvironmentFile=/etc/rssp/rssp.env
+Environment=PYTHONPATH=/opt/rssp/backend RSSP_WEB_DIR=/opt/rssp/web
+ExecStart=/opt/rssp/venv/bin/uvicorn rssp.api.app:app --host 127.0.0.1 --port 8080 --proxy-headers
+Restart=always
+RestartSec=3
+TimeoutStopSec=20
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/rssp
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

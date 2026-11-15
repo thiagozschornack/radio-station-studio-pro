@@ -1,0 +1,69 @@
+# RADIO STATION STUDIO PRO — implantação em VPS (Docker Compose v2)
+#   1) cp .env.example .env  &&  ./scripts/gen_secrets.sh >> .env   (revise os valores)
+#   2) docker compose up -d --build
+#   3) docker compose exec api python -m rssp.cli create-superadmin --email voce@dominio.com.br
+# Serviços: Caddy (HTTPS automático) → api | stream ; worker e playout independentes do navegador.
+name: rssp
+
+x-app: &app
+  build: { context: ., dockerfile: backend/Dockerfile }
+  env_file: .env
+  environment:
+    RSSP_ENV: production
+    RSSP_DATABASE_URL: postgresql://rssp:${POSTGRES_PASSWORD}@db:5432/rssp
+    RSSP_STORAGE_PATH: /data/storage
+    RSSP_COOKIE_SECURE: "1"
+    RSSP_TRUST_PROXY: "1"
+  volumes: [ "media:/data" ]
+  depends_on:
+    db: { condition: service_healthy }
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: rssp
+      POSTGRES_USER: rssp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env}
+    volumes: [ "pgdata:/var/lib/postgresql/data" ]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U rssp"], interval: 5s, retries: 20 }
+    restart: unless-stopped
+
+  icecast:
+    build: { context: deploy/icecast }
+    environment:
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD:?defina no .env}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD:?defina no .env}
+      ICECAST_HOSTNAME: ${STREAM_DOMAIN:-localhost}
+      ICECAST_MAX_CLIENTS: ${ICECAST_MAX_CLIENTS:-500}
+    restart: unless-stopped
+
+  api:
+    <<: *app
+
+  worker:
+    <<: *app
+    command: ["python", "-m", "rssp.jobs"]
+    healthcheck: { disable: true }
+
+  playout:
+    <<: *app
+    command: ["python", "-m", "rssp.playout", "--all"]
+    healthcheck: { disable: true }
+    stop_grace_period: 20s
+
+  caddy:
+    image: caddy:2-alpine
+    ports: [ "80:80", "443:443" ]
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?defina no .env}
+      STREAM_DOMAIN: ${STREAM_DOMAIN:?defina no .env}
+      ACME_EMAIL: ${ACME_EMAIL:?defina no .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [ api, icecast ]
+    restart: unless-stopped
+
+volumes: { pgdata: {}, media: {}, caddy_data: {} }

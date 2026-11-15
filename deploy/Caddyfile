@@ -1,0 +1,25 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# Painel administrativo, API e players públicos
+{$APP_DOMAIN} {
+	encode gzip
+	request_body {
+		max_size 400MB
+	}
+	reverse_proxy api:8080
+}
+
+# Distribuição pública do áudio (Icecast) com HTTPS — evita bloqueio de "conteúdo misto"
+{$STREAM_DOMAIN} {
+	# Páginas administrativas do Icecast não ficam expostas publicamente
+	@admin path /admin* /status.xsl /server_version.xsl
+	respond @admin 404
+	reverse_proxy icecast:8000 {
+		flush_interval -1
+		transport http {
+			read_timeout 0
+		}
+	}
+}

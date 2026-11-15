@@ -1,0 +1,27 @@
+# Alternativa ao Caddy para VPS sem Docker (certificados via certbot).
+server {
+    listen 443 ssl http2;
+    server_name radio.seudominio.com.br;
+    ssl_certificate     /etc/letsencrypt/live/radio.seudominio.com.br/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/radio.seudominio.com.br/privkey.pem;
+    client_max_body_size 400m;
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+server {
+    listen 443 ssl http2;
+    server_name stream.seudominio.com.br;
+    ssl_certificate     /etc/letsencrypt/live/stream.seudominio.com.br/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/stream.seudominio.com.br/privkey.pem;
+    location ~ ^/(admin|status\.xsl|server_version\.xsl) { return 404; }
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_buffering off;
+        proxy_read_timeout 1d;
+        proxy_set_header Host $host;
+    }
+}

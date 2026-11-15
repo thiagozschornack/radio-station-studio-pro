@@ -1,0 +1,9 @@
+# Execução (testado com as versões indicadas nos comentários)
+starlette>=0.40,<2          # testado 1.7.0
+uvicorn[standard]>=0.30     # testado 0.54.0
+PyJWT>=2.8                  # testado 2.15.0
+python-multipart>=0.0.9     # testado 0.0.32
+cryptography>=42            # testado 50.0.1
+psycopg[binary]>=3.1        # PostgreSQL em produção
+# Opcional: armazenamento S3/MinIO (RSSP_STORAGE_BACKEND=s3)
+# boto3>=1.34
